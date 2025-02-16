@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from 'next/image'
+import { LoadingAnimation } from "./components/loading-animation"
 
 export default function Home() {
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -33,12 +34,14 @@ export default function Home() {
     setVideoUrl("")
     setError("")
 
-    const formData = new FormData()
-    formData.append("image", imageFile)
-    formData.append("prompt", currentState)
-    formData.append("apiToken", apiToken)
-
     try {
+      setError("Uploading image and generating video (this may take a few minutes)...")
+      
+      const formData = new FormData()
+      formData.append("image", imageFile)
+      formData.append("prompt", currentState)
+      formData.append("apiToken", apiToken)
+
       const response = await fetch("/api/generate-trailer", {
         method: "POST",
         body: formData,
@@ -50,6 +53,7 @@ export default function Home() {
         throw new Error(data.error || "Failed to generate video")
       }
 
+      setError("")
       setVideoUrl(data.present.video_url)
     } catch (err: any) {
       console.error("Error:", err)
@@ -63,7 +67,7 @@ export default function Home() {
     <main className="container max-w-2xl mx-auto p-4">
       <Card className="border-none shadow-none">
         <CardHeader className="px-0">
-          <CardTitle className="text-2xl">Video Generator</CardTitle>
+          <CardTitle className="text-2xl">Future Trailer Generator</CardTitle>
         </CardHeader>
         <CardContent className="px-0">
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -133,33 +137,50 @@ export default function Home() {
             </div>
           </form>
 
-          {error && (
+          {error && !isLoading && (
             <div className="mt-4 p-3 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">
               {error}
             </div>
           )}
 
-          {videoUrl && (
+          {isLoading && (
+            <div className="mt-6">
+              <LoadingAnimation />
+              <div className="mt-4 text-sm text-blue-600 bg-blue-50 rounded-lg border border-blue-200 p-3">
+                {error || "Processing your request..."}
+              </div>
+            </div>
+          )}
+
+          {videoUrl && !isLoading && (
             <div className="mt-6 space-y-2">
-              <video 
-                controls 
-                className="w-full rounded-lg border"
-                src={videoUrl}
-              />
-              <Button
-                variant="link"
-                size="sm"
-                className="p-0 h-auto"
-                asChild
-              >
-                <a 
-                  href={videoUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
+              <div className="rounded-lg border overflow-hidden">
+                <video 
+                  controls 
+                  className="w-full"
+                  src={videoUrl}
+                  poster={imagePreview}
+                />
+              </div>
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-gray-500">
+                  Video generated successfully!
+                </p>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="p-0 h-auto"
+                  asChild
                 >
-                  Open in new tab
-                </a>
-              </Button>
+                  <a 
+                    href={videoUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                  >
+                    Open in new tab
+                  </a>
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

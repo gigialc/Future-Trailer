@@ -8,30 +8,40 @@ export async function POST(req: NextRequest) {
     const prompt = formData.get("prompt") as string
     const apiToken = formData.get("apiToken") as string
 
-    if (!image || !prompt || !apiToken) {
+    if (!prompt || !apiToken) {
       return NextResponse.json({ 
-        error: "Missing required fields" 
+        error: "Prompt and API token are required" 
       }, { status: 400 })
     }
-
-    // Convert File to Buffer
-    const bytes = await image.arrayBuffer()
-    const buffer = Buffer.from(bytes)
 
     const replicate = new Replicate({
       auth: apiToken,
     })
 
+    let modelInput: any = {
+      mode: "text-to-video",
+      prompt: prompt,
+      num_frames: 150,
+      fps: 25,
+      width: 1280,
+      height: 720,
+      guidance_scale: 7.5,
+      num_inference_steps: 50
+    }
+
+    // Add image if provided
+    if (image) {
+      const bytes = await image.arrayBuffer()
+      const base64Image = Buffer.from(bytes).toString('base64')
+      const dataUrl = `data:${image.type};base64,${base64Image}`
+      modelInput.subject_reference = dataUrl
+    }
+
     console.log('Starting video generation...')
     
     const output = await replicate.run(
       "minimax/video-01",
-      {
-        input: {
-          prompt: prompt,
-          subject_reference: buffer
-        }
-      }
+      { input: modelInput }
     )
 
     console.log('Generation complete:', output)
@@ -39,7 +49,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ 
       present: {
         script: prompt,
-        video_url: output
+        video_url: Array.isArray(output) ? output[0] : output
       }
     })
   } catch (error: any) {
@@ -50,5 +60,5 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export const maxDuration = 300 // 5 minutes
+export const maxDuration = 300
 
