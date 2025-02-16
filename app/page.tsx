@@ -1,39 +1,41 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import Image from "next/image"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import Image from 'next/image'
 
 export default function Home() {
-  const [images, setImages] = useState<File[]>([])
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string>("")
   const [currentState, setCurrentState] = useState("")
-  const [futureState, setFutureState] = useState("")
-  const [pathToFuture, setPathToFuture] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [script, setScript] = useState("")
-  const [videoUrl, setVideoUrl] = useState<string>("")
   const [apiToken, setApiToken] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [videoUrl, setVideoUrl] = useState<string>("")
+  const [error, setError] = useState("")
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setImages(Array.from(e.target.files))
+    const file = e.target.files?.[0]
+    if (file) {
+      setImageFile(file)
+      setImagePreview(URL.createObjectURL(file))
+      setError("")
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!imageFile) return
+
     setIsLoading(true)
+    setVideoUrl("")
+    setError("")
 
     const formData = new FormData()
-    images.forEach((image) => formData.append("images", image))
-    formData.append("currentState", currentState)
-    formData.append("futureState", futureState)
-    formData.append("pathToFuture", pathToFuture)
+    formData.append("image", imageFile)
+    formData.append("prompt", currentState)
     formData.append("apiToken", apiToken)
 
     try {
@@ -42,134 +44,125 @@ export default function Home() {
         body: formData,
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to generate trailer")
+      const data = await response.json()
+
+      if (!response.ok || data.error) {
+        throw new Error(data.error || "Failed to generate video")
       }
 
-      const data = await response.json()
-      setScript(data.script)
-      setVideoUrl(data.video_url)
-    } catch (error) {
-      console.error("Error generating trailer:", error)
-      alert("Failed to generate trailer. Please try again.")
+      setVideoUrl(data.present.video_url)
+    } catch (err: any) {
+      console.error("Error:", err)
+      setError(err.message || "Failed to generate video. Please try again.")
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <main className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Future Trailer Generator</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>Create Your Future Trailer</CardTitle>
+    <main className="container max-w-2xl mx-auto p-4">
+      <Card className="border-none shadow-none">
+        <CardHeader className="px-0">
+          <CardTitle className="text-2xl">Video Generator</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="apiToken" className="block text-sm font-medium mb-2">
-                Replicate API Token
-              </label>
-              <Input
-                id="apiToken"
-                type="password"
-                value={apiToken}
-                onChange={(e) => setApiToken(e.target.value)}
-                placeholder="Enter your Replicate API token"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="images" className="block text-sm font-medium mb-2">
-                Upload Images (2-5 recommended)
-              </label>
-              <Input id="images" type="file" accept="image/*" multiple onChange={handleImageUpload} />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {images.map((image, index) => (
-                <Image
-                  key={index}
-                  src={URL.createObjectURL(image) || "/placeholder.svg"}
-                  alt={`Uploaded image ${index + 1}`}
-                  width={100}
-                  height={100}
-                  className="object-cover rounded"
+            <input
+              type="password"
+              value={apiToken}
+              onChange={(e) => setApiToken(e.target.value)}
+              placeholder="Enter Replicate API Token"
+              className="w-full px-3 py-2 text-sm border rounded"
+              required
+            />
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-4">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  id="imageUpload"
+                  required
                 />
-              ))}
+                <Button 
+                  type="button" 
+                  onClick={() => document.getElementById('imageUpload')?.click()}
+                  variant="outline"
+                  size="sm"
+                >
+                  {imagePreview ? "Change Image" : "Upload Image"}
+                </Button>
+                {imagePreview && (
+                  <span className="text-sm text-green-600">
+                    ✓ Image selected
+                  </span>
+                )}
+              </div>
+              
+              {imagePreview && (
+                <div className="border rounded-lg p-2 bg-gray-50">
+                  <h3 className="text-sm font-medium mb-2">Reference Image:</h3>
+                  <Image
+                    width={300}
+                    height={300}
+                    src={imagePreview}
+                    alt="Reference"
+                    className="rounded-lg border"
+                  />
+                </div>
+              )}
             </div>
-            <div>
-              <label htmlFor="currentState" className="block text-sm font-medium mb-2">
-                Where are you in life right now?
-              </label>
+
+            <div className="space-y-2">
               <Textarea
-                id="currentState"
                 value={currentState}
                 onChange={(e) => setCurrentState(e.target.value)}
-                placeholder="Describe your current situation, challenges, and achievements"
+                placeholder="Describe what you want to see in the video..."
+                className="h-20"
+                required
               />
+              <Button
+                type="submit"
+                disabled={!imageFile || !currentState || !apiToken || isLoading}
+                size="sm"
+              >
+                {isLoading ? "Generating..." : "Generate Video"}
+              </Button>
             </div>
-            <div>
-              <label htmlFor="futureState" className="block text-sm font-medium mb-2">
-                Where do you want to be in the future?
-              </label>
-              <Textarea
-                id="futureState"
-                value={futureState}
-                onChange={(e) => setFutureState(e.target.value)}
-                placeholder="Describe your goals, aspirations, and ideal future state"
-              />
-            </div>
-            <div>
-              <label htmlFor="pathToFuture" className="block text-sm font-medium mb-2">
-                How do you plan to get there?
-              </label>
-              <Textarea
-                id="pathToFuture"
-                value={pathToFuture}
-                onChange={(e) => setPathToFuture(e.target.value)}
-                placeholder="Outline your strategy, steps, or milestones to achieve your future goals"
-              />
-            </div>
-            <Button
-              type="submit"
-              disabled={images.length === 0 || !currentState || !futureState || !pathToFuture || !apiToken || isLoading}
-            >
-              {isLoading ? "Generating..." : "Generate Future Trailer"}
-            </Button>
           </form>
-        </CardContent>
-        {(script || videoUrl) && (
-          <CardFooter>
-            <div className="w-full space-y-8">
-              {script && (
-                <div>
-                  <h2 className="text-xl font-semibold mb-2">Your Future Trailer Script</h2>
-                  <pre className="whitespace-pre-wrap bg-gray-100 p-4 rounded">{script}</pre>
-                </div>
-              )}
-              {videoUrl && (
-                <div>
-                  <h2 className="text-xl font-semibold mb-2">Your Generated Video</h2>
-                  <video 
-                    controls 
-                    className="w-full rounded border"
-                    src={videoUrl}
-                  >
-                    Your browser does not support the video tag.
-                  </video>
-                  <a 
-                    href={videoUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-500 hover:underline mt-2 inline-block"
-                  >
-                    Open video in new tab
-                  </a>
-                </div>
-              )}
+
+          {error && (
+            <div className="mt-4 p-3 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">
+              {error}
             </div>
-          </CardFooter>
-        )}
+          )}
+
+          {videoUrl && (
+            <div className="mt-6 space-y-2">
+              <video 
+                controls 
+                className="w-full rounded-lg border"
+                src={videoUrl}
+              />
+              <Button
+                variant="link"
+                size="sm"
+                className="p-0 h-auto"
+                asChild
+              >
+                <a 
+                  href={videoUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
+                  Open in new tab
+                </a>
+              </Button>
+            </div>
+          )}
+        </CardContent>
       </Card>
     </main>
   )
