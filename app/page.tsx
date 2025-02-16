@@ -7,12 +7,57 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from 'next/image'
 import { LoadingAnimation } from "./components/loading-animation"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Settings } from "lucide-react"
+
+function SettingsDialog({ apiToken, onApiTokenChange }: { apiToken: string, onApiTokenChange: (token: string) => void }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <Settings className="h-5 w-5" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Settings</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Replicate API Token</label>
+            <Input
+              type="password"
+              value={apiToken}
+              onChange={(e) => onApiTokenChange(e.target.value)}
+              placeholder="Enter your API token"
+            />
+            <p className="text-xs text-gray-500">
+              Get your API token from{" "}
+              <a href="https://replicate.com/account" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                replicate.com/account
+              </a>
+            </p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 export default function Home() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string>("")
   const [currentState, setCurrentState] = useState("")
-  const [apiToken, setApiToken] = useState("")
+  const [apiToken, setApiToken] = useState(() => {
+    // Initialize from localStorage if available
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('replicateApiToken') || ""
+    }
+    return ""
+  })
   const [isLoading, setIsLoading] = useState(false)
   const [videoUrl, setVideoUrl] = useState<string>("")
   const [error, setError] = useState("")
@@ -63,23 +108,25 @@ export default function Home() {
     }
   }
 
+  const handleApiTokenChange = (token: string) => {
+    setApiToken(token)
+    localStorage.setItem('replicateApiToken', token)
+  }
+
   return (
     <main className="container max-w-2xl mx-auto p-4">
       <Card className="border-none shadow-none">
         <CardHeader className="px-0">
-          <CardTitle className="text-2xl">Future Trailer Generator</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-2xl">Future Trailer Generator</CardTitle>
+            <SettingsDialog 
+              apiToken={apiToken}
+              onApiTokenChange={handleApiTokenChange}
+            />
+          </div>
         </CardHeader>
         <CardContent className="px-0">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <input
-              type="password"
-              value={apiToken}
-              onChange={(e) => setApiToken(e.target.value)}
-              placeholder="Enter Replicate API Token"
-              className="w-full px-3 py-2 text-sm border rounded"
-              required
-            />
-
             <div className="space-y-2">
               <div className="flex items-center gap-4">
                 <input

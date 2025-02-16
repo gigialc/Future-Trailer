@@ -21,12 +21,12 @@ export async function POST(req: NextRequest) {
     let modelInput: any = {
       mode: "text-to-video",
       prompt: prompt,
-      num_frames: 150,
-      fps: 25,
-      width: 1280,
-      height: 720,
+      num_frames: 24,
+      fps: 8,
+      width: 576,
+      height: 320,
       guidance_scale: 7.5,
-      num_inference_steps: 50
+      num_inference_steps: 30
     }
 
     // Add image if provided
@@ -39,17 +39,27 @@ export async function POST(req: NextRequest) {
 
     console.log('Starting video generation...')
     
-    const output = await replicate.run(
+    const prediction = await replicate.run(
       "minimax/video-01",
       { input: modelInput }
     )
 
-    console.log('Generation complete:', output)
+    console.log('Raw prediction:', prediction)
+
+    // Get the video URL from the prediction output
+    const videoUrl = typeof prediction === 'object' && prediction !== null
+      ? (prediction as any).output
+      : prediction
+
+    if (!videoUrl || typeof videoUrl !== 'string') {
+      console.error('Invalid video URL:', videoUrl)
+      throw new Error('Invalid video URL received from API')
+    }
 
     return NextResponse.json({ 
       present: {
         script: prompt,
-        video_url: Array.isArray(output) ? output[0] : output
+        video_url: videoUrl
       }
     })
   } catch (error: any) {
