@@ -16,6 +16,8 @@ export default function Home() {
   const [pathToFuture, setPathToFuture] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [script, setScript] = useState("")
+  const [videoUrl, setVideoUrl] = useState<string>("")
+  const [apiToken, setApiToken] = useState("")
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -32,6 +34,7 @@ export default function Home() {
     formData.append("currentState", currentState)
     formData.append("futureState", futureState)
     formData.append("pathToFuture", pathToFuture)
+    formData.append("apiToken", apiToken)
 
     try {
       const response = await fetch("/api/generate-trailer", {
@@ -45,6 +48,7 @@ export default function Home() {
 
       const data = await response.json()
       setScript(data.script)
+      setVideoUrl(data.video_url)
     } catch (error) {
       console.error("Error generating trailer:", error)
       alert("Failed to generate trailer. Please try again.")
@@ -62,6 +66,19 @@ export default function Home() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="apiToken" className="block text-sm font-medium mb-2">
+                Replicate API Token
+              </label>
+              <Input
+                id="apiToken"
+                type="password"
+                value={apiToken}
+                onChange={(e) => setApiToken(e.target.value)}
+                placeholder="Enter your Replicate API token"
+                required
+              />
+            </div>
             <div>
               <label htmlFor="images" className="block text-sm font-medium mb-2">
                 Upload Images (2-5 recommended)
@@ -115,17 +132,41 @@ export default function Home() {
             </div>
             <Button
               type="submit"
-              disabled={images.length === 0 || !currentState || !futureState || !pathToFuture || isLoading}
+              disabled={images.length === 0 || !currentState || !futureState || !pathToFuture || !apiToken || isLoading}
             >
               {isLoading ? "Generating..." : "Generate Future Trailer"}
             </Button>
           </form>
         </CardContent>
-        {script && (
+        {(script || videoUrl) && (
           <CardFooter>
-            <div className="w-full">
-              <h2 className="text-xl font-semibold mb-2">Your Future Trailer Script</h2>
-              <pre className="whitespace-pre-wrap bg-gray-100 p-4 rounded">{script}</pre>
+            <div className="w-full space-y-8">
+              {script && (
+                <div>
+                  <h2 className="text-xl font-semibold mb-2">Your Future Trailer Script</h2>
+                  <pre className="whitespace-pre-wrap bg-gray-100 p-4 rounded">{script}</pre>
+                </div>
+              )}
+              {videoUrl && (
+                <div>
+                  <h2 className="text-xl font-semibold mb-2">Your Generated Video</h2>
+                  <video 
+                    controls 
+                    className="w-full rounded border"
+                    src={videoUrl}
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                  <a 
+                    href={videoUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:underline mt-2 inline-block"
+                  >
+                    Open video in new tab
+                  </a>
+                </div>
+              )}
             </div>
           </CardFooter>
         )}

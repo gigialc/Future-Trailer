@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { streamText } from "ai"
 import { openai } from "@ai-sdk/openai"
 import sharp from "sharp"
+import Replicate from "replicate"
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData()
@@ -9,6 +10,7 @@ export async function POST(req: NextRequest) {
   const currentState = formData.get("currentState") as string
   const futureState = formData.get("futureState") as string
   const pathToFuture = formData.get("pathToFuture") as string
+  const apiToken = formData.get("apiToken") as string
 
   if (images.length === 0 || !currentState || !futureState || !pathToFuture) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -42,10 +44,27 @@ export async function POST(req: NextRequest) {
     prompt,
   })
 
-  const { text: script } = await result.text
+  const script = await result
 
-  // For now, we'll return the script. In a real application, you'd use this script to generate a video.
-  return NextResponse.json({ script })
+  const replicate = new Replicate({
+    auth: apiToken || process.env.REPLICATE_API_TOKEN,
+  })
+
+  const video = await replicate.run(
+    "anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351",
+    {
+      input: {
+        prompt: script,
+        num_frames: 100,
+        fps: 24,
+      }
+    }
+  )
+
+  return NextResponse.json({ 
+    script,
+    video_url: video
+  })
 }
 
 export const maxDuration = 60 // Set max duration to 60 seconds
